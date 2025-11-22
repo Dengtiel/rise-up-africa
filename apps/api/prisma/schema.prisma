@@ -15,6 +15,7 @@ enum UserRole {
   YOUTH
   DONOR
   ADMIN
+  SUPER_ADMIN
   FIELD_AGENT
 }
 
@@ -133,6 +134,7 @@ model Opportunity {
   requirements  String?
   category      YouthCategory[]
   countries     String[]
+  applicationLink String?       // Optional external application URL (e.g., Google Form)
   deadline      DateTime?
   maxApplicants Int?
   isActive      Boolean         @default(true)

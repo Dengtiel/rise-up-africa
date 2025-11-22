@@ -11,6 +11,8 @@ import { Badge } from "@workspace/ui/components/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
 import { toast } from "sonner";
 import type { Document } from "@/lib/types";
+import Link from "next/link";
+import DashboardHeader from "@/components/dashboard-header";
 import { IconFileUpload, IconTrash } from "@tabler/icons-react";
 
 export default function DocumentsPage() {
@@ -21,7 +23,14 @@ export default function DocumentsPage() {
     type: "ID" as "ID" | "TRANSCRIPT" | "RECOMMENDATION_LETTER",
     fileName: "",
     fileUrl: "",
+    // store the selected File object and its size so we can send a number
+    file: undefined as File | undefined,
+    size: undefined as number | undefined,
   });
+
+  // Client-side upload limit (keep in sync with backend MAX_DOCUMENT_SIZE)
+  const MAX_UPLOAD_MB = 5;
+  const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
   useEffect(() => {
     loadDocuments();
@@ -41,6 +50,13 @@ export default function DocumentsPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Client-side validation: prevent files larger than the allowed limit
+      if (file.size > MAX_UPLOAD_BYTES) {
+        toast.error(`File is too large. Maximum allowed is ${MAX_UPLOAD_MB} MB.`);
+        // clear selection if any
+        setFormData({ ...formData, file: undefined, fileName: "", fileUrl: "", size: undefined });
+        return;
+      }
       // In a real app, you'd upload to cloud storage (S3, etc.) and get the URL
       // For now, we'll use a placeholder
       const fileUrl = URL.createObjectURL(file);
@@ -48,6 +64,8 @@ export default function DocumentsPage() {
         ...formData,
         fileName: file.name,
         fileUrl: fileUrl, // In production, this would be the cloud storage URL
+        file,
+        size: file.size,
       });
     }
   };
@@ -57,13 +75,20 @@ export default function DocumentsPage() {
     setUploading(true);
 
     try {
-      // In production, upload file first, then save document record
-      await verificationApi.uploadDocument({
-        ...formData,
-        mimeType: "application/pdf",
-        size: 0,
+      // In production, upload file first (to cloud storage), then save document record
+      // Use the selected File's size and mimeType so backend receives numeric size
+      const resp = await verificationApi.uploadDocument({
+        type: formData.type,
+        fileName: formData.fileName,
+        fileUrl: formData.fileUrl,
+        mimeType: formData.file?.type || "application/pdf",
+        size: formData.size ?? undefined,
       });
-      toast.success("Document uploaded successfully!");
+      if (resp.action === "created") {
+        toast.success("Document uploaded successfully!");
+      } else {
+        toast.success("Existing document replaced successfully.");
+      }
       setFormData({ type: "ID", fileName: "", fileUrl: "" });
       loadDocuments();
     } catch (error) {
@@ -88,12 +113,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Documents</h2>
-        <p className="text-muted-foreground">
-          Upload your identification and academic documents
-        </p>
-      </div>
+      <DashboardHeader title="Documents" subtitle="Upload your identification and academic documents" />
 
       <Card>
         <CardHeader>

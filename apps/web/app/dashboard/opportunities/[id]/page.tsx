@@ -22,6 +22,8 @@ export default function OpportunityDetailPage() {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [coverLetter, setCoverLetter] = useState("");
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [showApplyDialog, setShowApplyDialog] = useState(false);
 
   useEffect(() => {
@@ -47,13 +49,35 @@ export default function OpportunityDetailPage() {
 
     setApplying(true);
     try {
+      // Read files as data URLs and include them as document objects in the application
+      const readFileAsDataUrl = (file: File) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+      const docs: Array<any> = [];
+      if (cvFile) {
+        const url = await readFileAsDataUrl(cvFile);
+        docs.push({ fileName: cvFile.name, fileUrl: url, mimeType: cvFile.type, size: cvFile.size, type: "CV" });
+      }
+      for (const f of attachments) {
+        const url = await readFileAsDataUrl(f);
+        docs.push({ fileName: f.name, fileUrl: url, mimeType: f.type, size: f.size, type: "ATTACHMENT" });
+      }
+
       await applicationApi.createApplication({
         opportunityId: opportunity.id,
         coverLetter,
+        documents: docs.length > 0 ? docs : undefined,
       });
       toast.success("Application submitted successfully!");
       setShowApplyDialog(false);
       setCoverLetter("");
+      setCvFile(null);
+      setAttachments([]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit application");
     } finally {
@@ -102,45 +126,72 @@ export default function OpportunityDetailPage() {
               <CardDescription>Opportunity information</CardDescription>
             </div>
             {canApply && (
-              <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
-                <DialogTrigger asChild>
+              opportunity.applicationLink ? (
+                <a href={opportunity.applicationLink} target="_blank" rel="noopener noreferrer">
                   <Button>
                     <IconCheck className="mr-2 h-4 w-4" />
-                    Apply Now
+                    Apply via External Link
                   </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Apply to Opportunity</DialogTitle>
-                    <DialogDescription>
-                      Submit your application for this opportunity
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="coverLetter">Cover Letter (Optional)</Label>
-                      <Textarea
-                        id="coverLetter"
-                        placeholder="Tell us why you're interested in this opportunity..."
-                        value={coverLetter}
-                        onChange={(e) => setCoverLetter(e.target.value)}
-                        rows={6}
-                      />
+                </a>
+              ) : (
+                <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <IconCheck className="mr-2 h-4 w-4" />
+                      Apply Now
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Apply to Opportunity</DialogTitle>
+                      <DialogDescription>
+                        Submit your application for this opportunity
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="coverLetter">Cover Letter (Optional)</Label>
+                        <Textarea
+                          id="coverLetter"
+                          placeholder="Tell us why you're interested in this opportunity..."
+                          value={coverLetter}
+                          onChange={(e) => setCoverLetter(e.target.value)}
+                          rows={6}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cv">Attach CV (Optional)</Label>
+                        <input
+                          id="cv"
+                          type="file"
+                          accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="attachments">Additional Documents (Optional)</Label>
+                        <input
+                          id="attachments"
+                          type="file"
+                          multiple
+                          onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowApplyDialog(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={handleApply} disabled={applying}>
-                      {applying ? "Submitting..." : "Submit Application"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowApplyDialog(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handleApply} disabled={applying}>
+                        {applying ? "Submitting..." : "Submit Application"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )
             )}
           </div>
         </CardHeader>

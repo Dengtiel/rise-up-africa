@@ -12,6 +12,8 @@ import { Input } from "@workspace/ui/components/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
 import { toast } from "sonner";
 import { IconMapPin } from "@tabler/icons-react";
+import Link from "next/link";
+import DashboardHeader from "@/components/dashboard-header";
 
 export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -42,11 +44,18 @@ export default function AssignmentsPage() {
   const handleCreateVisit = async () => {
     if (!selectedAssignment) return;
 
+    if (!visitData.visitDate) {
+      toast.error("Please provide a visit date and time");
+      return;
+    }
+
     setSubmitting(true);
     try {
+      // Convert local datetime-local value to an ISO datetime string
+      const iso = new Date(visitData.visitDate).toISOString();
       await verificationApi.createFieldVisit({
         verificationId: selectedAssignment.id,
-        visitDate: visitData.visitDate,
+        visitDate: iso,
         notes: visitData.notes || undefined,
       });
       toast.success("Field visit recorded successfully!");
@@ -79,12 +88,7 @@ export default function AssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">My Assignments</h2>
-        <p className="text-muted-foreground">
-          Manage your assigned verification cases
-        </p>
-      </div>
+      <DashboardHeader title="My Assignments" subtitle="Manage your assigned verification cases" />
 
       <Card>
         <CardHeader>

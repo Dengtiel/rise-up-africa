@@ -10,6 +10,8 @@ import { Label } from "@workspace/ui/components/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@workspace/ui/components/select";
 import { toast } from "sonner";
 import type { User } from "@/lib/types";
+import Link from "next/link";
+import DashboardHeader from "@/components/dashboard-header";
 
 export default function ProfilePage() {
   const { user: authUser, refreshUser } = useAuth();
@@ -68,10 +70,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Profile Settings</h2>
-        <p className="text-muted-foreground">Manage your account information</p>
-      </div>
+      <DashboardHeader title="Profile Settings" subtitle="Manage your account information" />
 
       <Card>
         <CardHeader>

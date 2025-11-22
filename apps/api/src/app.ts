@@ -13,6 +13,7 @@ import {
   getDocuments,
   getVerification,
 } from "./modules/user/user.controller";
+import { getUsersHandler } from "./modules/user/user.controller";
 
 // Verification routes
 import {
@@ -22,6 +23,7 @@ import {
   assignFieldAgentHandler,
   getFieldAgentVerificationsHandler,
   createFieldVisitHandler,
+  scheduleFieldVisitHandler,
   completeFieldVerificationHandler,
   searchYouthHandler,
 } from "./modules/verification/verification.controller";
@@ -63,6 +65,14 @@ app.put("/api/user/profile", authenticate, updateProfile);
 app.get("/api/user/documents", authenticate, getDocuments);
 app.get("/api/user/verification", authenticate, getVerification);
 
+// Admin: list users (ADMIN and SUPER_ADMIN)
+app.get(
+  "/api/users",
+  authenticate,
+  authorize("ADMIN", "SUPER_ADMIN"),
+  getUsersHandler
+);
+
 // Document upload (authenticated - youth only)
 app.post(
   "/api/verification/documents",
@@ -103,6 +113,13 @@ app.post(
   authenticate,
   authorize("FIELD_AGENT"),
   createFieldVisitHandler
+);
+// Admin: schedule a field visit and auto-assign a field agent by location
+app.post(
+  "/api/verification/schedule",
+  authenticate,
+  authorize("ADMIN"),
+  scheduleFieldVisitHandler
 );
 app.put(
   "/api/verification/:verificationId/complete",

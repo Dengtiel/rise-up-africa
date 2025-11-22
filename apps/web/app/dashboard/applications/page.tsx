@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@workspace/ui/components/button";
 import { toast } from "sonner";
 import Link from "next/link";
+import DashboardHeader from "@/components/dashboard-header";
 import type { Application } from "@/lib/types";
 import { IconFileCheck } from "@tabler/icons-react";
 
@@ -45,12 +46,7 @@ export default function ApplicationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">My Applications</h2>
-        <p className="text-muted-foreground">
-          Track the status of your applications
-        </p>
-      </div>
+      <DashboardHeader title="My Applications" subtitle="Track the status of your applications" />
 
       <Card>
         <CardHeader>

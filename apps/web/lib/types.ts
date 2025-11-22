@@ -71,6 +71,7 @@ export interface Opportunity {
   requirements?: string;
   category: YouthCategory[];
   countries: string[];
+  applicationLink?: string;
   deadline?: string;
   maxApplicants?: number;
   isActive: boolean;

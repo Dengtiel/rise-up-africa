@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@work
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
+import DashboardHeader from "@/components/dashboard-header";
 import { IconBriefcase, IconFileCheck, IconCheck, IconUsers } from "@tabler/icons-react";
 
 export default function DashboardPage() {
@@ -191,12 +192,7 @@ function DonorDashboard() {
 function AdminDashboard() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Admin Dashboard</h2>
-        <p className="text-muted-foreground">
-          Manage verifications and platform users
-        </p>
-      </div>
+      <DashboardHeader title="Admin Dashboard" subtitle="Manage verifications and platform users" />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

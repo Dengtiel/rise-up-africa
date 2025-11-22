@@ -71,81 +71,11 @@ rise-up-africa/
    Create `.env` files:
 
    **`apps/api/.env`**:
+## 📚 Documentation
 
-   ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/riseup_africa?schema=public"
-   JWT_SECRET="your-super-secret-jwt-key-change-in-production"
-   PORT=4000
-   NODE_ENV=development
-   ```
+## 🔔 Notes
 
-   **`apps/web/.env.local`**:
-
-   ```env
-   NEXT_PUBLIC_API_URL="http://localhost:4000"
-   ```
-
-4. **Set up the database**
-
-   ```bash
-   cd apps/api
-   pnpm prisma:generate
-   pnpm prisma:migrate
-   pnpm prisma:seed  # Optional: seed with test data
-   ```
-
-5. **Start development servers**
-
-   ```bash
-   # From root directory
-   pnpm dev
-   ```
-
-   This will start:
-   - API server at `http://localhost:4000`
-   - Web app at `http://localhost:3000`
-
-#### Option 2: Docker Compose (Quick Start)
-
-1. **Create environment file**
-
-   ```bash
-   cp .env.example .env
-   # Edit .env with your values
-   ```
-
-2. **Start all services**
-
-   ```bash
-   docker-compose up -d
-   ```
-
-   This will start:
-   - PostgreSQL database
-   - API server
-   - Web application
-
-3. **Run database migrations**
-
-   ```bash
-   docker-compose exec api pnpm prisma:migrate:deploy
-   ```
-
-4. **Seed database (optional)**
-
-   ```bash
-   docker-compose exec api pnpm prisma:seed
-   ```
-
-5. **Access the application**
-   - Web: http://localhost:3000
-   - API: http://localhost:4000
-
-#### Option 3: Docker Compose (Development with Hot Reload)
-
-```bash
-docker-compose -f docker-compose.dev.yml up
-```
+This README contains the main setup, development and deployment instructions for the project. See the API-specific docs in `apps/api/README.md` for backend details.
 
 This setup includes volume mounts for hot reload during development.
 
@@ -306,22 +236,72 @@ pnpm prisma:seed
 
 ### Testing
 
-Test credentials (from seed data):
-
-- **Admin**: `admin@riseupafrica.org` / `password123`
+   - Document uploads: uploading a document of the same type will replace the existing file for that youth (prevents duplicate ID/transcript/recommendation entries).
+   - External application link: donors can optionally provide an `applicationLink` (e.g. Google Form) when creating an opportunity. This requires a Prisma schema update/migration if your local database hasn't been migrated.
 - **Field Agent**: `fieldagent@riseupafrica.org` / `password123`
 - **Donor**: `donor@example.org` / `password123`
 - **Youth**: `youth@example.com` / `password123`
 
 ## 📚 Documentation
 
-- [API Documentation](./apps/api/README.md)
-- [Deployment Guide](./DEPLOYMENT.md)
-- [Contributing Guidelines](./CONTRIBUTING.md)
+## ▶️ When the app is running — Quick walkthrough
 
-## 🏛️ Tech Stack
+These steps assume the API and web servers are already running locally (default ports shown).
 
-### Frontend
+- **Open the web app:** `http://localhost:3000`
+- **API base URL:** `http://localhost:4000` (used by the frontend)
+
+- **Test accounts (seeded):**
+   - Admin: `admin@riseupafrica.org` / `password123`
+   - Field Agent: `fieldagent@riseupafrica.org` / `password123`
+   - Donor: `donor@example.org` / `password123`
+   - Youth: `youth@example.com` / `password123`
+
+- **Admin workflow (verify youth):**
+   1. Sign in as **Admin** and open `Dashboard → Pending Verifications` or visit `/dashboard/verifications`.
+   2. Review uploaded documents and open the review dialog to set status to `VERIFIED` or `REJECTED` and add notes.
+
+- **Youth workflow (upload & apply):**
+   1. Sign in as **Youth** and go to `Dashboard → Documents` to upload ID, Transcript, or Recommendation Letter. Uploading a document of the same type replaces the previous one.
+   2. After uploading, request verification (if your flow requires it) and wait for an Admin to approve.
+   3. Browse `Opportunities` and apply: either use the internal apply dialog (attach files) or click `Apply via External Link` when a donor provided an external `applicationLink`.
+
+- **Donor workflow (post opportunities):**
+   1. Sign in as **Donor** and go to `Dashboard → Opportunities → New` to create an opportunity.
+   2. Optionally paste an `Application Link` (Google Form or external URL) — applicants will see an `Apply via External Link` button.
+
+- **Dev tips & logs:**
+   - If running locally with `pnpm dev`, watch the terminal where each service is running for logs.
+   - With Docker Compose, use `docker-compose logs -f` to follow logs.
+   - If you encounter JavaScript heap OOM errors when running the web dev server, increase Node's heap before starting:
+
+```powershell
+$env:NODE_OPTIONS="--max-old-space-size=4096"
+cd apps/web
+pnpm dev
+```
+
+
+## 🔔 Recent Changes
+
+- **Document upload behavior:** Uploading a document of the same type now replaces the existing document for that youth instead of creating duplicates. Backend: `apps/api/src/modules/verification/verification.service.ts`, `apps/api/src/modules/verification/verification.controller.ts`. The API response now returns `{ document, action: "created" | "replaced" }` so the frontend can show appropriate feedback.
+- **Frontend documents UI:** The documents page shows distinct messages when an upload replaces an existing document. Files: `apps/web/app/dashboard/documents/page.tsx`, `apps/web/lib/api.ts`.
+
+- **Admin scheduling & assignment:** Admins can now schedule field visits and auto-assign nearby field agents. Backend: `POST /api/verification/schedule` implemented in `apps/api/src/modules/verification/verification.controller.ts` and `verification.service.ts`. The scheduling logic prefers a matching `camp` (or `community`), then `country`, and will return a helpful error if no matching agents exist.
+- **Admin UI — Schedule & Assign:** The web admin UI includes a `Schedule Visit` action on `Dashboard → Pending Verifications` (`/dashboard/verifications`) and an `Assign Agent` modal to pick a FIELD_AGENT without leaving the page. Files: `apps/web/app/dashboard/verifications/page.tsx`, `apps/web/lib/api.ts`.
+- **Field Agent views:** Field Agents will see assigned visits under `Dashboard → Field Visits` (`/dashboard/visits`) and `Dashboard → Assignments` (`/dashboard/assignments`). The visits page polls every 15s so admin-scheduled visits appear shortly after assignment. Files: `apps/web/app/dashboard/visits/page.tsx`, `apps/web/app/dashboard/assignments/page.tsx`.
+
+Note: If you added the optional `applicationLink` field to the `Opportunity` model in the Prisma schema, run a migration and regenerate the client (example command below):
+
+```bash
+cd apps/api
+pnpm prisma:migrate dev --name add-application-link
+pnpm prisma:generate
+```
+- **Application controller fixes:** Fixed a missing import (`createApplicationWithDocuments`) and added validation so route params (`opportunityId`, `applicationId`) are checked before calling services. File: `apps/api/src/modules/application/application.controller.ts`.
+- **Application service compatibility:** `getOpportunityApplications` now maps the Prisma `verifications` array to a single `verification` field on the returned youth object to maintain frontend compatibility. File: `apps/api/src/modules/application/application.service.ts`.
+- **External application link (donor):** Support for an optional `applicationLink` on opportunities was added in code and types. This change requires a Prisma migration if not yet applied. Files touched: `apps/api/prisma/schema.prisma`, `apps/api/src/modules/opportunity/opportunity.schema.ts`, and frontend opportunity pages.
+
 
 - **Next.js 15** - React framework
 - **React 19** - UI library
@@ -368,7 +348,7 @@ Test credentials (from seed data):
 
 ## 📧 Contact
 
-info@lajiktech.com
+d.akol@alustudent.com
 
 ---
 

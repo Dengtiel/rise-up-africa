@@ -1,6 +1,9 @@
 import type { User, Document, Verification, Opportunity, Application } from "./types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim()
+    ? process.env.NEXT_PUBLIC_API_URL
+    : "http://localhost:4000";
 
 export interface ApiError {
   error: string;
@@ -47,10 +50,11 @@ export class ApiClient {
     });
 
     if (!response.ok) {
-      const error: ApiError = await response.json().catch(() => ({
+      const error: ApiError & { message?: string } = await response.json().catch(() => ({
         error: "An error occurred",
       }));
-      throw new Error(error.error || "An error occurred");
+      const detail = error.message ? `: ${error.message}` : "";
+      throw new Error((error.error || "An error occurred") + detail);
     }
 
     return response.json();
@@ -113,6 +117,17 @@ export const userApi = {
   updateProfile: (data: unknown) => api.put<User>("/api/user/profile", data),
   getDocuments: () => api.get<Document[]>("/api/user/documents"),
   getVerification: () => api.get<Verification>("/api/user/verification"),
+  // Admin: paginated users listing
+  getUsers: (params?: { page?: number; limit?: number; sort?: string; order?: "asc" | "desc"; role?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.append("page", String(params.page));
+    if (params?.limit) qs.append("limit", String(params.limit));
+    if (params?.sort) qs.append("sort", params.sort);
+    if (params?.order) qs.append("order", params.order);
+    if (params?.role) qs.append("role", params.role);
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return api.get<{ total: number; page: number; limit: number; items: User[] }>(`/api/users${query}`);
+  },
 };
 
 // Verification API
@@ -123,7 +138,7 @@ export const verificationApi = {
     fileUrl: string;
     mimeType?: string;
     size?: number;
-  }) => api.post<Document>("/api/verification/documents", data),
+  }) => api.post<{ document: Document; action: "created" | "replaced" }>("/api/verification/documents", data),
   getPendingVerifications: () => api.get<Verification[]>("/api/verification/pending"),
   reviewVerification: (verificationId: string, data: {
     status: "VERIFIED" | "REJECTED" | "UNDER_REVIEW";
@@ -138,6 +153,12 @@ export const verificationApi = {
     notes?: string;
     photos?: string[];
   }) => api.post<any>("/api/verification/field-visit", data),
+  // Admin: schedule a field visit and auto-assign a FIELD_AGENT based on location
+  scheduleVisit: (data: {
+    verificationId: string;
+    visitDate: string;
+    notes?: string;
+  }) => api.post<{ visit: unknown; assignedAgent?: unknown }>("/api/verification/schedule", data),
   completeVerification: (verificationId: string, notes?: string) =>
     api.put<Verification>(`/api/verification/${verificationId}/complete`, { notes }),
   searchYouth: (filters: {
@@ -176,6 +197,7 @@ export const opportunityApi = {
     title: string;
     description: string;
     requirements?: string;
+    applicationLink?: string;
     category: ("REFUGEE" | "IDP" | "VULNERABLE" | "PWD")[];
     countries: string[];
     deadline?: string;
@@ -192,6 +214,13 @@ export const applicationApi = {
     opportunityId: string;
     coverLetter?: string;
     additionalInfo?: string;
+    documents?: Array<{
+      fileName: string;
+      fileUrl: string;
+      mimeType?: string;
+      size?: number;
+      type?: string;
+    }>;
   }) => api.post<Application>("/api/applications", data),
   getMyApplications: () => api.get<Application[]>("/api/applications/my-applications"),
   getOpportunityApplications: (opportunityId: string) =>
