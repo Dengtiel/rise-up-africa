@@ -21,9 +21,9 @@ export default function NewOpportunityPage() {
     requirements: "",
     category: [] as string[],
     countries: [] as string[],
+    applicationLink: "",
     deadline: "",
     maxApplicants: "",
-    applicationLink: "",
   });
   const [countryInput, setCountryInput] = useState("");
 
@@ -76,16 +76,16 @@ export default function NewOpportunityPage() {
     setLoading(true);
 
     try {
-        await opportunityApi.createOpportunity({
+      const deadlineIso = formData.deadline ? new Date(formData.deadline).toISOString() : undefined;
+
+      await opportunityApi.createOpportunity({
         title: formData.title,
         description: formData.description,
         requirements: formData.requirements || undefined,
-          applicationLink: formData.applicationLink || undefined,
+        applicationLink: formData.applicationLink || undefined,
         category: formData.category as any,
         countries: formData.countries,
-        // `input[type=datetime-local]` yields a local date/time like "2025-11-19T12:34".
-        // Convert to an ISO timestamp so the backend Zod `datetime()` accepts it.
-        deadline: formData.deadline ? new Date(formData.deadline).toISOString() : undefined,
+        deadline: deadlineIso,
         maxApplicants: formData.maxApplicants
           ? parseInt(formData.maxApplicants)
           : undefined,
@@ -261,14 +261,12 @@ export default function NewOpportunityPage() {
               <Input
                 id="applicationLink"
                 type="url"
-                placeholder="https://forms.gle/..."
+                placeholder="https://example.com/apply"
                 value={formData.applicationLink}
                 onChange={(e) => setFormData({ ...formData, applicationLink: e.target.value })}
                 disabled={loading}
               />
             </div>
-
-            
 
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>

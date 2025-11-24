@@ -5,7 +5,6 @@ import {
 } from "./application.schema";
 import {
   createApplication,
-  createApplicationWithDocuments,
   getYouthApplications,
   getOpportunityApplications,
   updateApplicationStatus,
@@ -24,11 +23,7 @@ export const createApplicationHandler = async (
     }
 
     const validatedData = createApplicationSchema.parse(req.body);
-    // If documents were provided, use the helper that also creates Document records.
-    const application = Array.isArray(validatedData.documents) && validatedData.documents.length > 0
-      ? await createApplicationWithDocuments(req.userId, validatedData as any)
-      : await createApplication(req.userId, validatedData as any);
-
+    const application = await createApplication(req.userId, validatedData);
     res.status(201).json(application);
   } catch (error) {
     if (error instanceof Error) {
@@ -68,7 +63,7 @@ export const getOpportunityApplicationsHandler = async (
 
     const { opportunityId } = req.params;
     if (!opportunityId) {
-      res.status(400).json({ error: "Missing opportunityId" });
+      res.status(400).json({ error: "Opportunity ID is required" });
       return;
     }
     const applications = await getOpportunityApplications(opportunityId, req.userId);
@@ -94,7 +89,7 @@ export const updateApplicationStatusHandler = async (
 
     const { applicationId } = req.params;
     if (!applicationId) {
-      res.status(400).json({ error: "Missing applicationId" });
+      res.status(400).json({ error: "Application ID is required" });
       return;
     }
     const validatedData = updateApplicationStatusSchema.parse(req.body);
@@ -125,7 +120,7 @@ export const getApplicationByIdHandler = async (
 
     const { applicationId } = req.params;
     if (!applicationId) {
-      res.status(400).json({ error: "Missing applicationId" });
+      res.status(400).json({ error: "Application ID is required" });
       return;
     }
     const application = await getApplicationById(applicationId, req.userId);

@@ -1,80 +1,88 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 import { verificationApi } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@workspace/ui/components/card";
-import { Badge } from "@workspace/ui/components/badge";
-import DashboardHeader from "@/components/dashboard-header";
-import type { FieldVisit, Verification } from "@/lib/types";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
+import { toast } from "sonner";
+import type { Verification } from "@/lib/types";
 
 export default function VisitsPage() {
-  const [visits, setVisits] = useState<Array<{
-    visit: FieldVisit;
-    verification: Verification;
-  }>>([]);
+  const [verifications, setVerifications] = useState<Verification[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    loadVisits();
-    const id = setInterval(loadVisits, 15000); // refresh every 15s so scheduled visits appear
-    return () => clearInterval(id);
-  }, []);
-
-  const loadVisits = async () => {
-    try {
-      const verifications = await verificationApi.getFieldAgentVerifications();
-      // Flatten fieldVisits
-      const items: Array<{ visit: FieldVisit; verification: Verification }> = [];
-      verifications.forEach((v) => {
-        v.fieldVisits?.forEach((fv) => items.push({ visit: fv, verification: v }));
-      });
-      // sort by visit date desc
-      items.sort((a, b) => new Date(b.visit.visitDate).getTime() - new Date(a.visit.visitDate).getTime());
-      setVisits(items);
-    } catch (error) {
-      console.error("Failed to load visits:", error);
-    } finally {
-      setLoading(false);
+    if (authLoading) return;
+    if (!user || user.role !== "FIELD_AGENT") {
+      router.push("/dashboard");
+      return;
     }
-  };
+
+    const load = async () => {
+      try {
+        const data = await verificationApi.getFieldAgentVerifications();
+        setVerifications(data || []);
+      } catch (error) {
+        // Log error for debugging and show a friendly toast
+        // Use console only for development debugging
+        console.error("Failed to load visits:", error);
+        toast.error("Failed to load visits");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+    const id = setInterval(load, 15000);
+    return () => clearInterval(id);
+  }, [authLoading, user, router]);
 
   return (
     <div className="space-y-6">
-      <DashboardHeader title="Field Visits" subtitle="Record and manage field visits" />
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">Field Visits</h2>
+        <p className="text-muted-foreground">Your scheduled and completed field visits</p>
+      </div>
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between w-full">
-            <div>
-              <CardTitle>Field Visits</CardTitle>
-              <CardDescription>Visits scheduled or recorded for your assignments</CardDescription>
-            </div>
-            <Badge variant="outline">{loading ? "Loading" : `${visits.length} visits`}</Badge>
-          </div>
+          <CardTitle>Visits</CardTitle>
+          <CardDescription>Scheduled visits and notes</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {(authLoading || loading) ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
-          ) : visits.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No visits found</div>
+          ) : verifications.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">No visits assigned</div>
           ) : (
-            <div className="space-y-4">
-              {visits.map(({ visit, verification }) => (
-                <div key={visit.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm font-medium">Visit on {new Date(visit.visitDate).toLocaleString()}</p>
-                      {visit.notes && <p className="text-sm text-muted-foreground mt-1">{visit.notes}</p>}
-                      <p className="text-sm text-muted-foreground mt-2">Youth: {verification.user?.firstName} {verification.user?.lastName} ({verification.user?.email})</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm">Status</p>
-                      <Badge variant="outline" className="mt-1">{verification.status}</Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Youth</TableHead>
+                  <TableHead>Visit Date</TableHead>
+                  <TableHead>Notes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {verifications
+                  .flatMap((v) =>
+                    (v.fieldVisits || []).map((visit) => ({ visit, youth: v.user }))
+                  )
+                  .map(({ visit, youth }) => (
+                    <TableRow key={visit.id}>
+                      <TableCell>
+                        {youth?.firstName ?? ""} {youth?.lastName ?? ""}
+                      </TableCell>
+                      <TableCell>{new Date(visit.visitDate).toLocaleString()}</TableCell>
+                      <TableCell>{visit.notes || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

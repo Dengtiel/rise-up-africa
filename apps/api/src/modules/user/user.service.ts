@@ -96,56 +96,23 @@ export const getUserVerification = async (userId: string) => {
   });
 };
 
-export const getUsers = async (options: {
-  page?: number;
-  limit?: number;
-  sort?: string;
-  order?: "asc" | "desc";
-  role?: string;
-}) => {
-  const page = options.page && options.page > 0 ? options.page : 1;
-  const limit = options.limit && options.limit > 0 ? options.limit : 20;
-  const skip = (page - 1) * limit;
-
+export const listUsers = async (filters?: { role?: string }) => {
   const where: any = {};
-  if (options.role) where.role = options.role;
+  if (filters?.role) where.role = filters.role as any;
 
-  const [total, items] = await Promise.all([
-    prisma.user.count({ where }),
-    prisma.user.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { [options.sort || "createdAt"]: options.order || "desc" },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        category: true,
-        country: true,
-        camp: true,
-        createdAt: true,
-        // Verification is a related model; schema uses 'verifications' on the User model
-        verifications: { select: { status: true } },
-      },
-    }),
-  ]);
-
-  // Map the verifications array (0/1) to a single `verification` field for compatibility
-  const mappedItems = items.map((it: any) => {
-    const verification = Array.isArray(it.verifications) && it.verifications.length > 0 ? it.verifications[0] : null;
-    // Remove the original verifications array and add single verification
-    const { verifications, ...rest } = it;
-    return { ...rest, verification };
+  return await prisma.user.findMany({
+    where,
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      country: true,
+      camp: true,
+      community: true,
+    },
+    orderBy: { firstName: "asc" },
   });
-
-  return {
-    total,
-    page,
-    limit,
-    items: mappedItems,
-  };
 };
 

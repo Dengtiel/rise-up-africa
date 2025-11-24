@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { opportunityApi, applicationApi } from "@/lib/api";
+import { opportunityApi, applicationApi, userApi } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card";
 import { Button } from "@workspace/ui/components/button";
 import { Badge } from "@workspace/ui/components/badge";
@@ -22,15 +22,32 @@ export default function OpportunityDetailPage() {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [coverLetter, setCoverLetter] = useState("");
-  const [cvFile, setCvFile] = useState<File | null>(null);
-  const [attachments, setAttachments] = useState<File[]>([]);
   const [showApplyDialog, setShowApplyDialog] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.id) {
       loadOpportunity();
     }
   }, [params.id]);
+
+  useEffect(() => {
+    // If the current user is a youth, fetch their verification status
+    const loadVerification = async () => {
+      if (user?.role === "YOUTH") {
+        try {
+          const v = await userApi.getVerification();
+          setVerificationStatus(v?.status || null);
+        } catch (err) {
+          setVerificationStatus(null);
+        }
+      } else {
+        setVerificationStatus(null);
+      }
+    };
+
+    loadVerification();
+  }, [user]);
 
   const loadOpportunity = async () => {
     try {
@@ -49,35 +66,13 @@ export default function OpportunityDetailPage() {
 
     setApplying(true);
     try {
-      // Read files as data URLs and include them as document objects in the application
-      const readFileAsDataUrl = (file: File) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-      const docs: Array<any> = [];
-      if (cvFile) {
-        const url = await readFileAsDataUrl(cvFile);
-        docs.push({ fileName: cvFile.name, fileUrl: url, mimeType: cvFile.type, size: cvFile.size, type: "CV" });
-      }
-      for (const f of attachments) {
-        const url = await readFileAsDataUrl(f);
-        docs.push({ fileName: f.name, fileUrl: url, mimeType: f.type, size: f.size, type: "ATTACHMENT" });
-      }
-
       await applicationApi.createApplication({
         opportunityId: opportunity.id,
         coverLetter,
-        documents: docs.length > 0 ? docs : undefined,
       });
       toast.success("Application submitted successfully!");
       setShowApplyDialog(false);
       setCoverLetter("");
-      setCvFile(null);
-      setAttachments([]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit application");
     } finally {
@@ -100,7 +95,10 @@ export default function OpportunityDetailPage() {
     return null;
   }
 
-  const canApply = user?.role === "YOUTH" && opportunity.isActive;
+  const canApply =
+    user?.role === "YOUTH" &&
+    verificationStatus === "VERIFIED" &&
+    opportunity.isActive;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -125,18 +123,11 @@ export default function OpportunityDetailPage() {
               <CardTitle>Details</CardTitle>
               <CardDescription>Opportunity information</CardDescription>
             </div>
-            {canApply && (
-              opportunity.applicationLink ? (
-                <a href={opportunity.applicationLink} target="_blank" rel="noopener noreferrer">
-                  <Button>
-                    <IconCheck className="mr-2 h-4 w-4" />
-                    Apply via External Link
-                  </Button>
-                </a>
-              ) : (
+            {user?.role === "YOUTH" && opportunity.isActive && (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
                 <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button disabled={verificationStatus !== "VERIFIED"}>
                       <IconCheck className="mr-2 h-4 w-4" />
                       Apply Now
                     </Button>
@@ -159,24 +150,6 @@ export default function OpportunityDetailPage() {
                           rows={6}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cv">Attach CV (Optional)</Label>
-                        <input
-                          id="cv"
-                          type="file"
-                          accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                          onChange={(e) => setCvFile(e.target.files?.[0] || null)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="attachments">Additional Documents (Optional)</Label>
-                        <input
-                          id="attachments"
-                          type="file"
-                          multiple
-                          onChange={(e) => setAttachments(Array.from(e.target.files || []))}
-                        />
-                      </div>
                     </div>
                     <DialogFooter>
                       <Button
@@ -191,7 +164,21 @@ export default function OpportunityDetailPage() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              )
+
+                {opportunity.applicationLink && (
+                  <Button asChild variant="outline" className="mt-2 sm:mt-0">
+                    <a href={opportunity.applicationLink} target="_blank" rel="noopener noreferrer">
+                      Apply Externally
+                    </a>
+                  </Button>
+                )}
+
+                {verificationStatus !== "VERIFIED" && (
+                  <p className="text-sm text-muted-foreground mt-2 sm:mt-0">
+                    You must be verified to apply. <a className="underline" href="/dashboard/documents">Upload verification documents</a>.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </CardHeader>

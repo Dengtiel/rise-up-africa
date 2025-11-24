@@ -21,7 +21,7 @@ interface RegisterData {
   firstName?: string;
   lastName?: string;
   phone?: string;
-  role: "YOUTH" | "DONOR" | "ADMIN" | "FIELD_AGENT";
+  role: "YOUTH" | "DONOR" | "ADMIN" | "FIELD_AGENT" | "SUPER_ADMIN";
   category?: "REFUGEE" | "IDP" | "VULNERABLE" | "PWD";
   country?: string;
   camp?: string;

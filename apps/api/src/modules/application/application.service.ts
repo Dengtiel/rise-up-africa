@@ -96,33 +96,6 @@ export const createApplication = async (
   });
 };
 
-// When creating an application with attached documents, create Document records
-// associated with the youth. We keep this separate so existing behavior remains
-// untouched for calls that don't pass documents.
-export const createApplicationWithDocuments = async (
-  youthId: string,
-  input: CreateApplicationInput
-) => {
-  const application = await createApplication(youthId, input);
-
-  if (Array.isArray(input.documents) && input.documents.length > 0) {
-    // Create document records for each uploaded file
-    const docsData = input.documents.map((d) => ({
-      userId: youthId,
-      type: d.type || "ATTACHMENT",
-      fileName: d.fileName,
-      fileUrl: d.fileUrl,
-      mimeType: d.mimeType || undefined,
-      size: typeof d.size === "number" ? d.size : undefined,
-    }));
-
-    // Use createMany for efficiency (note: createMany doesn't return created rows)
-    await prisma.document.createMany({ data: docsData });
-  }
-
-  return application;
-};
-
 export const getYouthApplications = async (youthId: string) => {
   return await prisma.application.findMany({
     where: { youthId },
@@ -161,6 +134,7 @@ export const getOpportunityApplications = async (
   if (opportunity.donorId !== donorId) {
     throw new Error("Unauthorized: You can only view applications for your own opportunities");
   }
+  // Fetch applications and map youth.verifications array to a single `verification` field
   const apps = await prisma.application.findMany({
     where: { opportunityId },
     include: {
@@ -174,12 +148,12 @@ export const getOpportunityApplications = async (
           country: true,
           camp: true,
           community: true,
-          // Prisma schema exposes `verifications` (array). Select it and
-          // map to a single `verification` entry below for frontend compatibility.
           verifications: {
             select: {
+              id: true,
               status: true,
             },
+            take: 1,
           },
         },
       },
@@ -187,18 +161,12 @@ export const getOpportunityApplications = async (
     orderBy: { submittedAt: "desc" },
   });
 
-  return mapApplications(apps);
-};
-
-// Helper: map verifications array to a single `verification` field on the youth object
-const mapApplications = (apps: any[]) => {
-  return apps.map((app) => {
-    if (app && app.youth) {
-      const verifs = Array.isArray(app.youth.verifications) && app.youth.verifications.length > 0 ? app.youth.verifications[0] : null;
-      const { verifications, ...restYouth } = app.youth;
-      return { ...app, youth: { ...restYouth, verification: verifs } };
-    }
-    return app;
+  return apps.map((app: any) => {
+    const { youth } = app as any;
+    const verification = (youth?.verifications && youth.verifications[0]) || null;
+    const transformedYouth = { ...youth, verification };
+    delete (transformedYouth as any).verifications;
+    return { ...app, youth: transformedYouth };
   });
 };
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { opportunityApi, userApi } from "@/lib/api";
+import { opportunityApi } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card";
 import { Button } from "@workspace/ui/components/button";
 import { Badge } from "@workspace/ui/components/badge";
@@ -10,7 +10,6 @@ import { Input } from "@workspace/ui/components/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@workspace/ui/components/select";
 import { toast } from "sonner";
 import Link from "next/link";
-import DashboardHeader from "@/components/dashboard-header";
 import type { Opportunity } from "@/lib/types";
 import { IconBriefcase, IconSearch } from "@tabler/icons-react";
 
@@ -21,28 +20,12 @@ export default function OpportunitiesPage() {
   const [filters, setFilters] = useState({
     category: "all",
     country: "",
-    isActive: "all",
+    isActive: "true",
   });
-  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
 
   useEffect(() => {
     loadOpportunities();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, user]);
-
-  useEffect(() => {
-    // Fetch user's verification status for UI gating (apply button)
-    const fetchVerification = async () => {
-      if (!user) return;
-      try {
-        const v = await userApi.getVerification();
-        setVerificationStatus(v?.status || null);
-      } catch (err) {
-        setVerificationStatus(null);
-      }
-    };
-    fetchVerification();
-  }, [user]);
+  }, [filters]);
 
   const loadOpportunities = async () => {
     setLoading(true);
@@ -53,7 +36,7 @@ export default function OpportunitiesPage() {
         ...(filters.isActive !== "all" && { isActive: filters.isActive === "true" }),
         ...(user?.role === "DONOR" && { donorId: user.id }),
       });
-      setOpportunities(data as unknown as Opportunity[]);
+      setOpportunities(data);
     } catch (error) {
       toast.error("Failed to load opportunities");
     } finally {
@@ -70,10 +53,14 @@ export default function OpportunitiesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <DashboardHeader
-            title={user?.role === "DONOR" ? "My Opportunities" : "Opportunities"}
-            subtitle={user?.role === "DONOR" ? "Manage your posted opportunities" : "Browse available opportunities"}
-          />
+          <h2 className="text-3xl font-bold tracking-tight">
+            {user?.role === "DONOR" ? "My Opportunities" : "Opportunities"}
+          </h2>
+          <p className="text-muted-foreground">
+            {user?.role === "DONOR"
+              ? "Manage your posted opportunities"
+              : "Browse available opportunities"}
+          </p>
         </div>
         {user?.role === "DONOR" && (
           <Button asChild>
@@ -92,7 +79,9 @@ export default function OpportunitiesPage() {
               <div className="space-y-2">
                 <Select
                   value={filters.category}
-                  onValueChange={(value) => setFilters({ ...filters, category: value })}
+                  onValueChange={(value) =>
+                    setFilters({ ...filters, category: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Category" />
@@ -110,13 +99,17 @@ export default function OpportunitiesPage() {
                 <Input
                   placeholder="Country"
                   value={filters.country}
-                  onChange={(e) => setFilters({ ...filters, country: e.target.value })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, country: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Select
                   value={filters.isActive}
-                  onValueChange={(value) => setFilters({ ...filters, isActive: value })}
+                  onValueChange={(value) =>
+                    setFilters({ ...filters, isActive: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -150,47 +143,46 @@ export default function OpportunitiesPage() {
             <Card key={opp.id} className="flex flex-col">
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="line-clamp-2">{opp.title}</CardTitle>
-                    {!opp.isActive && <Badge variant="outline">Inactive</Badge>}
-                  </div>
+                  <CardTitle className="line-clamp-2">{opp.title}</CardTitle>
+                  {!opp.isActive && (
+                    <Badge variant="outline">Inactive</Badge>
+                  )}
                 </div>
-                <CardDescription className="line-clamp-2">{opp.description}</CardDescription>
+                <CardDescription className="line-clamp-2">
+                  {opp.description}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col justify-between space-y-4">
                 <div className="space-y-2">
                   <div className="flex flex-wrap gap-2">
                     {opp.category.map((cat) => (
-                      <Badge key={cat} variant="secondary">{cat}</Badge>
+                      <Badge key={cat} variant="secondary">
+                        {cat}
+                      </Badge>
                     ))}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     <p>Countries: {opp.countries.join(", ")}</p>
                     <p>Deadline: {formatDate(opp.deadline)}</p>
-                    {opp._count && <p>Applications: {opp._count.applications}</p>}
+                    {opp._count && (
+                      <p>Applications: {opp._count.applications}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button asChild variant="outline" className="flex-1">
                     <Link href={`/dashboard/opportunities/${opp.id}`}>View</Link>
                   </Button>
-
                   {user?.role === "DONOR" && (
-                    <Button asChild variant="outline" className="flex-1">
-                      <Link href={`/dashboard/opportunities/${opp.id}/applications`}>Applications</Link>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <Link href={`/dashboard/opportunities/${opp.id}/applications`}>
+                        Applications
+                      </Link>
                     </Button>
-                  )}
-
-                  {user?.role === "YOUTH" && (
-                    verificationStatus === "VERIFIED" ? (
-                      <Button asChild className="flex-1">
-                        <Link href={`/dashboard/opportunities/${opp.id}`}>Apply</Link>
-                      </Button>
-                    ) : (
-                      <Button disabled className="flex-1" title="You must be verified to apply">
-                        Verify to apply
-                      </Button>
-                    )
                   )}
                 </div>
               </CardContent>

@@ -34,17 +34,8 @@ export default function OpportunityApplicationsPage() {
       setOpportunity(oppData);
       setApplications(appData);
     } catch (error) {
-      // Show the actual API error when available and log for debugging
-      // The ApiClient throws an Error with the server message in `message`.
-      // Only redirect on Unauthorized / Not found to avoid losing the user
-      // on transient errors.
-      // eslint-disable-next-line no-console
-      console.error("Failed to load opportunity applications:", error);
-      const msg = (error as any)?.message || "Failed to load data";
-      toast.error(msg);
-      if (msg.includes("Unauthorized") || msg.includes("not found") || msg.includes("Not found")) {
-        router.push("/dashboard/opportunities");
-      }
+      toast.error("Failed to load data");
+      router.push("/dashboard/opportunities");
     } finally {
       setLoading(false);
     }

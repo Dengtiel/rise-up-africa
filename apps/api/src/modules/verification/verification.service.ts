@@ -4,20 +4,20 @@ import type {
   AdminReviewInput,
   FieldVisitInput,
   AssignFieldAgentInput,
+  ScheduleVisitInput,
 } from "./verification.schema";
 
-export const uploadDocument = async (userId: string, input: UploadDocumentInput) => {
-  // If a document of the same type already exists for this user,
-  // replace it by performing an update. This avoids duplicate
-  // documents for the same (userId, type). Return an object with
-  // the saved document and an `action` indicating whether it was
-  // created or replaced.
+export const uploadDocument = async (
+  userId: string,
+  input: UploadDocumentInput
+) => {
+  // Check if a document of the same type already exists for this user
   const existing = await prisma.document.findFirst({
     where: { userId, type: input.type },
   });
 
   if (existing) {
-    const updated = await prisma.document.update({
+    const document = await prisma.document.update({
       where: { id: existing.id },
       data: {
         fileName: input.fileName,
@@ -27,16 +27,17 @@ export const uploadDocument = async (userId: string, input: UploadDocumentInput)
         uploadedAt: new Date(),
       },
     });
-    return { document: updated, action: "replaced" as const };
+    return { document, action: "replaced" as const };
   }
 
-  const created = await prisma.document.create({
+  const document = await prisma.document.create({
     data: {
       userId,
       ...input,
     },
   });
-  return { document: created, action: "created" as const };
+
+  return { document, action: "created" as const };
 };
 
 export const getPendingVerifications = async () => {
@@ -139,6 +140,96 @@ export const assignFieldAgent = async (
   });
 };
 
+export const scheduleVisit = async (
+  adminId: string,
+  input: ScheduleVisitInput
+) => {
+  const { verificationId, visitDate, notes, preferredAgentId } = input;
+
+  const verification = await prisma.verification.findUnique({
+    where: { id: verificationId },
+    include: { user: true },
+  });
+
+  if (!verification) {
+    throw new Error("Verification not found");
+  }
+
+  // If a preferred agent was provided, try to assign directly
+  if (preferredAgentId) {
+    const agent = await prisma.user.findUnique({ where: { id: preferredAgentId } });
+    if (!agent || agent.role !== "FIELD_AGENT") {
+      throw new Error("Preferred field agent not found or not a field agent");
+    }
+
+    const visit = await prisma.fieldVisit.create({
+      data: {
+        verificationId,
+        fieldAgentId: preferredAgentId,
+        visitDate: new Date(visitDate),
+        notes,
+      },
+      include: {
+        verification: { include: { user: true } },
+        fieldAgent: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
+    });
+
+    await prisma.verification.update({
+      where: { id: verificationId },
+      data: { fieldAgentId: preferredAgentId, status: "UNDER_REVIEW" },
+    });
+
+    return { visit, assignedAgent: visit.fieldAgent };
+  }
+
+  // Find nearby field agents: prefer camp/community then country
+  const { camp, community, country } = verification.user || {};
+
+  let agents: any[] = [];
+
+  if (camp) {
+    agents = await prisma.user.findMany({ where: { role: "FIELD_AGENT", camp } });
+  }
+
+  if (agents.length === 0 && community) {
+    agents = await prisma.user.findMany({ where: { role: "FIELD_AGENT", community } });
+  }
+
+  if (agents.length === 0 && country) {
+    agents = await prisma.user.findMany({ where: { role: "FIELD_AGENT", country } });
+  }
+
+  if (agents.length === 0) {
+    throw new Error(
+      "No field agents available in the user's camp, community, or country. Please add agents or assign manually."
+    );
+  }
+
+  // Pick the first available agent for now
+  const assigned = agents[0];
+
+  const visit = await prisma.fieldVisit.create({
+    data: {
+      verificationId,
+      fieldAgentId: assigned.id,
+      visitDate: new Date(visitDate),
+      notes,
+    },
+    include: {
+      verification: { include: { user: true } },
+      fieldAgent: { select: { id: true, firstName: true, lastName: true, email: true } },
+    },
+  });
+
+  await prisma.verification.update({
+    where: { id: verificationId },
+    data: { fieldAgentId: assigned.id, status: "UNDER_REVIEW" },
+  });
+
+  return { visit, assignedAgent: visit.fieldAgent };
+};
+
 export const getFieldAgentVerifications = async (fieldAgentId: string) => {
   return await prisma.verification.findMany({
     where: { fieldAgentId },
@@ -199,89 +290,6 @@ export const createFieldVisit = async (fieldAgentId: string, input: FieldVisitIn
   });
 };
 
-/**
- * Schedule a field visit as an ADMIN. This finds a FIELD_AGENT with a
- * matching location (country or camp) to the youth on the verification,
- * assigns the agent to the verification, and creates the field visit.
- */
-export const scheduleFieldVisit = async (
-  adminId: string,
-  input: {
-    verificationId: string;
-    visitDate: string;
-    notes?: string;
-    photos?: string[];
-  }
-) => {
-  const { verificationId, visitDate, notes, photos } = input;
-
-  // Load verification with user location info
-  const verification = await prisma.verification.findUnique({
-    where: { id: verificationId },
-    include: { user: true },
-  });
-
-  if (!verification) {
-    throw new Error("Verification not found");
-  }
-
-  const userCountry = verification.user?.country || undefined;
-  const userCamp = verification.user?.camp || undefined;
-  const userCommunity = verification.user?.community || undefined;
-
-  // Prefer agents who match the youth's camp (or community treated as alternate camp).
-  // If none found, fall back to matching by country. If still none found, return an error.
-  let agent = null;
-
-  if (userCamp || userCommunity) {
-    const campConditions: any[] = [];
-    if (userCamp) campConditions.push({ camp: { equals: userCamp } });
-    if (userCommunity) campConditions.push({ camp: { equals: userCommunity } });
-
-    agent = await prisma.user.findFirst({
-      where: { role: "FIELD_AGENT", OR: campConditions },
-    });
-  }
-
-  if (!agent && userCountry) {
-    agent = await prisma.user.findFirst({
-      where: { role: "FIELD_AGENT", country: { equals: userCountry } },
-    });
-  }
-
-  if (!agent) {
-    throw new Error("No field agents available in the youth's camp or country to schedule the visit");
-  }
-
-  // Assign the agent to the verification if not already assigned
-  await prisma.verification.update({
-    where: { id: verificationId },
-    data: { fieldAgentId: agent.id, status: "UNDER_REVIEW" },
-  });
-
-  // Create the field visit record
-  const visit = await prisma.fieldVisit.create({
-    data: {
-      verificationId,
-      fieldAgentId: agent.id,
-      visitDate: new Date(visitDate),
-      notes,
-      photos: photos || [],
-    },
-    include: {
-      verification: {
-        include: {
-          user: {
-            select: { id: true, email: true, firstName: true, lastName: true },
-          },
-        },
-      },
-    },
-  });
-
-  return { visit, assignedAgent: { id: agent.id, firstName: agent.firstName, lastName: agent.lastName, email: agent.email } };
-};
-
 export const completeFieldVerification = async (
   verificationId: string,
   fieldAgentId: string,
@@ -324,27 +332,19 @@ export const searchYouth = async (filters: {
     where.category = filters.category;
   }
   if (filters.country) {
-    // Allow case-insensitive partial matches for country so searches like
-    // "kenya", "Kenya" or "Ken" will match stored values.
-    where.country = { contains: filters.country, mode: "insensitive" };
+    where.country = filters.country;
   }
   if (filters.camp) {
-    // Match camp OR community (both stored on the user) so the frontend
-    // "Camp/Community" input will find users whether the value is saved
-    // in `camp` or `community`.
-    where.OR = [
-      { camp: { contains: filters.camp, mode: "insensitive" } },
-      { community: { contains: filters.camp, mode: "insensitive" } },
-    ];
+    where.camp = { contains: filters.camp, mode: "insensitive" };
   }
 
   const users = await prisma.user.findMany({
     where,
     include: {
-      // `verifications` is the relation name on User (array); include it and map below
-      verifications: filters.status
-        ? { where: { status: filters.status as any } }
-        : { select: { status: true } },
+      verifications: {
+        where: filters.status ? { status: filters.status as any } : undefined,
+        take: 1,
+      },
       documents: {
         select: {
           id: true,
@@ -357,17 +357,10 @@ export const searchYouth = async (filters: {
   });
 
   // Filter by verification status if provided
-  // Map verifications array to a single `verification` field for compatibility
-  const mapped = users.map((u: any) => {
-    const verification = Array.isArray(u.verifications) && u.verifications.length > 0 ? u.verifications[0] : null;
-    const { verifications, ...rest } = u;
-    return { ...rest, verification };
-  });
-
   if (filters.status) {
-    return mapped.filter((user) => user.verification?.status === filters.status);
+    return users.filter((user: any) => user.verifications[0]?.status === filters.status);
   }
 
-  return mapped;
+  return users;
 };
 

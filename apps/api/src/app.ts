@@ -12,8 +12,8 @@ import {
   updateProfile,
   getDocuments,
   getVerification,
+  listUsersHandler,
 } from "./modules/user/user.controller";
-import { getUsersHandler } from "./modules/user/user.controller";
 
 // Verification routes
 import {
@@ -23,9 +23,9 @@ import {
   assignFieldAgentHandler,
   getFieldAgentVerificationsHandler,
   createFieldVisitHandler,
-  scheduleFieldVisitHandler,
   completeFieldVerificationHandler,
   searchYouthHandler,
+  scheduleVisitHandler,
 } from "./modules/verification/verification.controller";
 
 // Opportunity routes
@@ -64,13 +64,12 @@ app.get("/api/user/profile", authenticate, getProfile);
 app.put("/api/user/profile", authenticate, updateProfile);
 app.get("/api/user/documents", authenticate, getDocuments);
 app.get("/api/user/verification", authenticate, getVerification);
-
-// Admin: list users (ADMIN and SUPER_ADMIN)
+// Admin: list users (filter by role)
 app.get(
   "/api/users",
   authenticate,
-  authorize("ADMIN", "SUPER_ADMIN"),
-  getUsersHandler
+  authorize("ADMIN"),
+  listUsersHandler
 );
 
 // Document upload (authenticated - youth only)
@@ -101,6 +100,13 @@ app.put(
   assignFieldAgentHandler
 );
 
+app.post(
+  "/api/verification/schedule",
+  authenticate,
+  authorize("ADMIN"),
+  scheduleVisitHandler
+);
+
 // Field agent routes
 app.get(
   "/api/verification/field-agent",
@@ -113,13 +119,6 @@ app.post(
   authenticate,
   authorize("FIELD_AGENT"),
   createFieldVisitHandler
-);
-// Admin: schedule a field visit and auto-assign a field agent by location
-app.post(
-  "/api/verification/schedule",
-  authenticate,
-  authorize("ADMIN"),
-  scheduleFieldVisitHandler
 );
 app.put(
   "/api/verification/:verificationId/complete",

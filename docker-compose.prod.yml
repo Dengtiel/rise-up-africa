@@ -1,3 +1,7 @@
+# Production docker-compose with internal networking only
+# Use this with a reverse proxy (nginx, traefik, etc.) that handles external access
+# Containers communicate internally via service names: 'api', 'web', 'postgres'
+
 services:
   # PostgreSQL Database
   postgres:
@@ -7,8 +11,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-riseup}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-riseup_password}
       POSTGRES_DB: ${POSTGRES_DB:-riseup_africa}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # No port mapping - access only from within Docker network
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,10 +34,7 @@ services:
       PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-riseup}:${POSTGRES_PASSWORD:-riseup_password}@postgres:5432/${POSTGRES_DB:-riseup_africa}?schema=public
       JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
-    # Port mapping: host:container
-    # For production with reverse proxy, remove this port mapping and access via service name 'api' on port 4000
-    ports:
-      - "${API_PORT:-5557}:4000"
+    # No port mapping - access via reverse proxy or service name 'api:4000' from within network
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,15 +54,12 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5557}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:4000}
     container_name: riseup-web
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:4000}
-    # Port mapping: host:container
-    # For production with reverse proxy, remove this port mapping and access via service name 'web' on port 3000
-    ports:
-      - "${WEB_PORT:-5556}:3000"
+    # No port mapping - access via reverse proxy or service name 'web:3000' from within network
     depends_on:
       - api
     networks:

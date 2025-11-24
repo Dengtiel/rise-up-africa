@@ -6,8 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@work
 import { Badge } from "@workspace/ui/components/badge";
 import { Progress } from "@workspace/ui/components/progress";
 import type { Verification } from "@/lib/types";
-import Link from "next/link";
-import DashboardHeader from "@/components/dashboard-header";
 import { IconCheck, IconX, IconClock, IconFileCheck } from "@tabler/icons-react";
 
 export default function VerificationPage() {
@@ -106,7 +104,10 @@ export default function VerificationPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardHeader title="Verification Status" subtitle="Track your verification progress" />
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">Verification Status</h2>
+        <p className="text-muted-foreground">Track your verification progress</p>
+      </div>
 
       <Card>
         <CardHeader>

@@ -45,6 +45,10 @@ export const updateOpportunityHandler = async (
     }
 
     const { opportunityId } = req.params;
+    if (!opportunityId) {
+      res.status(400).json({ error: "Opportunity ID is required" });
+      return;
+    }
     const validatedData = updateOpportunitySchema.parse(req.body);
     const opportunity = await updateOpportunity(
       opportunityId,
@@ -87,6 +91,10 @@ export const getOpportunityByIdHandler = async (
 ): Promise<void> => {
   try {
     const { opportunityId } = req.params;
+    if (!opportunityId) {
+      res.status(400).json({ error: "Opportunity ID is required" });
+      return;
+    }
     const opportunity = await getOpportunityById(opportunityId);
     res.status(200).json(opportunity);
   } catch (error) {
@@ -109,6 +117,10 @@ export const deleteOpportunityHandler = async (
     }
 
     const { opportunityId } = req.params;
+    if (!opportunityId) {
+      res.status(400).json({ error: "Opportunity ID is required" });
+      return;
+    }
     const result = await deleteOpportunity(opportunityId, req.userId);
     res.status(200).json(result);
   } catch (error) {

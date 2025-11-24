@@ -40,7 +40,7 @@ export function NavUser({ user }: { user: User }) {
 
   const initials = user.firstName && user.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`
-    : user.firstName?.[0] || user.email[0].toUpperCase() || "U"
+    : user.firstName?.[0] || (user.email?.[0]?.toUpperCase() ?? "U")
 
   const handleLogout = () => {
     logout()

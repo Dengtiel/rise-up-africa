@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 import { verificationApi } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card";
 import { Button } from "@workspace/ui/components/button";
@@ -12,8 +14,6 @@ import { Input } from "@workspace/ui/components/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
 import { toast } from "sonner";
 import { IconMapPin } from "@tabler/icons-react";
-import Link from "next/link";
-import DashboardHeader from "@/components/dashboard-header";
 
 export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -25,10 +25,20 @@ export default function AssignmentsPage() {
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user || user.role !== "FIELD_AGENT") {
+      router.push("/dashboard");
+      return;
+    }
+
     loadAssignments();
-  }, []);
+    const id = setInterval(loadAssignments, 15000);
+    return () => clearInterval(id);
+  }, [authLoading, user]);
 
   const loadAssignments = async () => {
     try {
@@ -44,18 +54,13 @@ export default function AssignmentsPage() {
   const handleCreateVisit = async () => {
     if (!selectedAssignment) return;
 
-    if (!visitData.visitDate) {
-      toast.error("Please provide a visit date and time");
-      return;
-    }
-
     setSubmitting(true);
     try {
-      // Convert local datetime-local value to an ISO datetime string
-      const iso = new Date(visitData.visitDate).toISOString();
+      const visitDateIso = visitData.visitDate ? new Date(visitData.visitDate).toISOString() : undefined;
+
       await verificationApi.createFieldVisit({
         verificationId: selectedAssignment.id,
-        visitDate: iso,
+        visitDate: visitDateIso || "",
         notes: visitData.notes || undefined,
       });
       toast.success("Field visit recorded successfully!");
@@ -88,7 +93,12 @@ export default function AssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardHeader title="My Assignments" subtitle="Manage your assigned verification cases" />
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">My Assignments</h2>
+        <p className="text-muted-foreground">
+          Manage your assigned verification cases
+        </p>
+      </div>
 
       <Card>
         <CardHeader>
@@ -96,7 +106,7 @@ export default function AssignmentsPage() {
           <CardDescription>Your assigned verification cases</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {(authLoading || loading) ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
           ) : assignments.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">

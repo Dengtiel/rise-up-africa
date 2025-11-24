@@ -1,4 +1,4 @@
-export type UserRole = "YOUTH" | "DONOR" | "ADMIN" | "FIELD_AGENT";
+export type UserRole = "YOUTH" | "DONOR" | "ADMIN" | "FIELD_AGENT" | "SUPER_ADMIN";
 export type VerificationStatus = "PENDING" | "VERIFIED" | "REJECTED" | "UNDER_REVIEW";
 export type ApplicationStatus = "PENDING" | "UNDER_REVIEW" | "SELECTED" | "REJECTED";
 export type YouthCategory = "REFUGEE" | "IDP" | "VULNERABLE" | "PWD";
@@ -69,9 +69,9 @@ export interface Opportunity {
   title: string;
   description: string;
   requirements?: string;
+  applicationLink?: string;
   category: YouthCategory[];
   countries: string[];
-  applicationLink?: string;
   deadline?: string;
   maxApplicants?: number;
   isActive: boolean;

@@ -1,4 +1,5 @@
-import { PrismaClient } from "../generated/prisma/client";
+// @ts-ignore - allow using generated Prisma client types when prisma generate has run
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 

@@ -29,7 +29,10 @@ COPY apps/api/ ./apps/api/
 COPY packages/ ./packages/
 
 # Generate Prisma client
+# Note: DATABASE_URL is not needed for prisma generate, but prisma.config.ts requires it
+# We use a dummy value during build time
 WORKDIR /app/apps/api
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
 RUN pnpm prisma:generate
 
 # Build the application
@@ -51,11 +54,14 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/packages ./packages
 
+
 # Copy built application
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/src/generated ./apps/api/dist/generated
 COPY --from=builder /app/apps/api/src/generated ./apps/api/src/generated
 COPY --from=builder /app/apps/api/package.json ./apps/api/
+
 
 # Set working directory to API
 WORKDIR /app/apps/api

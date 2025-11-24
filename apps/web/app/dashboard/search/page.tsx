@@ -10,8 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
 import { toast } from "sonner";
 import type { User } from "@/lib/types";
-import Link from "next/link";
-import DashboardHeader from "@/components/dashboard-header";
 import { IconSearch } from "@tabler/icons-react";
 
 export default function SearchPage() {
@@ -48,7 +46,12 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardHeader title="Search Youth" subtitle="Find verified youth candidates for your opportunities" />
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">Search Youth</h2>
+        <p className="text-muted-foreground">
+          Find verified youth candidates for your opportunities
+        </p>
+      </div>
 
       <Card>
         <CardHeader>

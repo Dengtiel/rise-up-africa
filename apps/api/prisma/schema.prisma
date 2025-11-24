@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -15,8 +15,8 @@ enum UserRole {
   YOUTH
   DONOR
   ADMIN
-  SUPER_ADMIN
   FIELD_AGENT
+  SUPER_ADMIN
 }
 
 enum VerificationStatus {
@@ -132,9 +132,9 @@ model Opportunity {
   title         String
   description   String
   requirements  String?
+  applicationLink String?
   category      YouthCategory[]
   countries     String[]
-  applicationLink String?       // Optional external application URL (e.g., Google Form)
   deadline      DateTime?
   maxApplicants Int?
   isActive      Boolean         @default(true)
