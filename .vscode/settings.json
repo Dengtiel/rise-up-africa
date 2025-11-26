@@ -1,10 +1,4 @@
 {
   "tailwindCSS.experimental.configFile": "packages/ui/src/styles/globals.css",
   "prisma.pinToPrisma6": true
-  ,
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.preferences.importModuleSpecifier": "relative",
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
-  }
 }
