@@ -13,17 +13,6 @@ RiseUp Africa is a comprehensive platform that connects marginalized youth (Refu
 - **Search & Discovery**: Advanced search for verified youth and opportunities
 - **Modern UI**: Beautiful, responsive interface built with Next.js and shadcn/ui
 
-## 🔔 What's New (Recent changes)
-
-- Document upload now replaces an existing document of the same type for a youth (no duplicate documents).
-- The document upload API response returns `{ document, action }` where `action` is `"created"` or `"replaced"` so the frontend can show accurate feedback.
-- The API accepts uploads that report `size: 0` (some clients/storage providers report 0); frontend may omit `size` when unknown. Server still validates and will enforce non-empty uploads server-side where required.
-- Donors can now provide an `applicationLink` when creating an opportunity. If present, the opportunity detail shows an "Apply Externally" button that opens the link.
-- Apply UX: the Apply button is visible to Youth users but disabled until their verification status is `VERIFIED`. The backend also enforces verification when creating applications (defense-in-depth).
-- Admins can schedule field visits and the system will attempt to auto-assign nearby Field Agents (by camp → community → country) or use a preferred agent if provided. Field Agents have dedicated pages for `Visits` and `Assignments` and the UI polls these lists periodically.
-- New admin user listing page to help with assigning agents (`/dashboard/users`).
-
-
 ## 🏗️ Architecture
 
 This is a **monorepo** built with:
