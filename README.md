@@ -386,13 +386,15 @@ Test credentials (from seed data):
 
 - MIT License
 
-## 🤝 Contributing
+##  Deployment Lin
+
+Deployment Link: https://riseupafrica.lajiktech.com/
 
 ---
 
 ## 📧 Contact
 
-info@lajiktech.com
+d.akol@alustudent.com
 
 ---
 
