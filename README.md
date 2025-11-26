@@ -386,7 +386,7 @@ Test credentials (from seed data):
 
 - MIT License
 
-##  Deployment Lin
+##  Deployment Link
 
 Deployment Link: https://riseupafrica.lajiktech.com/
 
